@@ -156,3 +156,41 @@ If you want, I can:
 - **Screenshot:**
   Add a screenshot to the PR showing the model file and the service usage (e.g. open `src/app/models/product.model.ts` and `product.service.ts` in your editor and attach an image).  
 
+**PR: Binding Demo component (four Angular binding types)**
+
+- **What I added:**
+  - `binding-demo.component.ts|html|css|spec.ts` under `conceptKlarity/angular/`.
+  - Declared `BindingDemoComponent` in `app.module.ts` and added `<app-binding-demo>` to the main template so it renders on the page.
+
+- **Binding types demonstrated in the component:**
+  - **Interpolation:** displays `title` using `{{ title }}`.
+  - **Property binding:** binds `[disabled]` on a button and `[src]` on an image.
+  - **Event binding:** responds to `(click)` and updates `count`.
+  - **Two-way binding:** uses `[(ngModel)]` to bind `username` to an `<input>` (requires `FormsModule`).
+
+- **Why and when to use each binding type:**
+  - **Interpolation:** for embedding component data into text/HTML content (e.g., labels, headings).
+  - **Property binding:** to set DOM element properties from component state (e.g., `src`, `disabled`).
+  - **Event binding:** to react to user interactions (e.g., `click`, `input`) and run component logic.
+  - **Two-way binding:** when you need the UI to both display model data and update the model (forms, quick inputs).
+
+- **Compile & run:**
+  - Make sure `FormsModule` is imported in `app.module.ts` (already included in this scaffold). Run locally:
+
+```bash
+cd conceptKlarity/angular
+npm install
+npm start    # or ng serve
+```
+
+  - Open `http://localhost:4200` and you should see the binding demo component rendering.
+  - Hot reload: `ng serve` recompiles on file change and updates the browser automatically.
+
+- **Testing & build:**
+  - Run `ng test` to start the Karma+Jasmine runner (watch mode).
+  - Run `ng build` to produce the `dist/` folder for deployment.
+
+- **Note about verification in this environment:**
+  I could not run the Angular CLI here (no Node/Angular installed). Please run the commands above locally and paste the `ng serve`, `ng build`, and `ng test` outputs/screenshots into the PR description. If you run into compile errors, share the output and I'll fix them immediately.
+
+

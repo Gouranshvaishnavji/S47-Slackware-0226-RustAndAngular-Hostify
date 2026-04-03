@@ -1,0 +1,22 @@
+<div class="binding-demo">
+  <!-- Interpolation -->
+  <h2>{{ title }}</h2>
+
+  <!-- Property binding -->
+  <button [disabled]="isDisabled">Click (disabled = {{ isDisabled }})</button>
+  <div>
+    <img [src]="imgUrl" alt="Random" />
+  </div>
+
+  <!-- Event binding -->
+  <div>
+    <button (click)="increment()">Increase</button>
+    <p>Current Count: {{ count }}</p>
+  </div>
+
+  <!-- Two-way binding -->
+  <div>
+    <input [(ngModel)]="username" placeholder="Enter name" />
+    <p>Hello, {{ username }}</p>
+  </div>
+</div>
