@@ -35,6 +35,22 @@ Files added
 - `conceptKlarity/angular/reactive-form.component.*`
 - `conceptKlarity/documentation.md` (this file)
 
+Service & shared state
+
+- **What I added:** a `StateService` located at `conceptKlarity/angular/services/state.service.ts` that acts as a single source of truth for a shared `Product[]` collection. It exposes a `BehaviorSubject` as `items$` and methods to `setItems`, `addItem`, `updateItem`, and `removeItem`.
+
+- **Why services:** Services centralize shared data and logic so multiple components can access and update the same state without duplicating code or manually passing events/props. This follows Angular's dependency-injection pattern and keeps components focused on presentation.
+
+- **Dependency injection:** components inject `StateService` via their constructor, e.g. `constructor(private state: StateService) {}`. Angular provides a single instance (service is `providedIn: 'root'`) so the state is shared application-wide.
+
+- **How state is shared:** `ProductListComponent` loads items from the backend and calls `state.setItems(data)`. Other components (e.g., `DemoCliComponent`) subscribe to `state.items$` (the observable) and automatically receive updates. This demonstrates the publish/subscribe pattern using RxJS.
+
+- **Edge cases handled:**
+	- Invalid updates: `addItem` validates payloads (non-empty name, non-negative price) and returns `null` for invalid attempts — components should handle this return value.
+	- Empty data state: the `BehaviorSubject` is initialized with an empty array so subscribers always receive a defined array (avoids `null` checks in templates).
+	- API simulation: `simulateApiLoad(shouldFail)` demonstrates how the service can simulate an API error (returns a rejected Promise when `shouldFail` is true) and how callers can handle it.
+
+
 Run locally
 
 ```bash
