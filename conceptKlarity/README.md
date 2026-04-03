@@ -64,3 +64,44 @@ If you want, I can:
 - Commit these changes and create a branch for the PR
 - Add a small Angular proxy config to forward `/api` calls to the backend during `ng serve`
 - Add CORS config to the Rust server
+
+**PR: TypeScript Model & Typed Service**
+
+- **What I added:**
+  - `src/app/models/product.model.ts` — `Product` interface defining typed fields and an optional `description`.
+  - Updated `product.service.ts` to import the `Product` interface and to provide typed methods: `getProducts(): Observable<Product[]>` and `createProduct(...) : Observable<Product>`.
+  - Updated `product-list.component.ts` to consume the typed service, assign `items: Product[]`, and `console.log` the strongly-typed response.
+
+- **TypeScript features used:**
+  - **Types & primitives:** `number`, `string`.
+  - **Interfaces:** `export interface Product { ... }` for a clear domain model.
+  - **Optional fields:** `description?: string` demonstrates optional properties.
+  - **Classes:** Angular `ProductService` and `ProductListComponent` are typed classes.
+  - **Typed functions:** method signatures explicitly declare return types.
+  - **Generics:** `Observable<Product[]>` shows `Observable<T>` and how generics enforce types across async boundaries.
+
+- **Why TypeScript improves Angular development (short):**
+  TypeScript adds static types and interfaces that catch many bugs at compile time, make refactors safer, and improve IDE support (autocomplete, jump-to-definition, quick signature help). In Angular, types make component inputs/outputs, service contracts, and HTTP payloads explicit, reducing runtime surprises and improving collaboration.
+
+- **How to verify locally:**
+
+  1. Start the backend (if you want to see runtime responses):
+
+  ```powershell
+  cd conceptKlarity/rust-backend
+  cargo run
+  ```
+
+  2. Start the Angular app and see typed logs in the browser console:
+
+  ```bash
+  cd conceptKlarity/angular
+  npm install
+  npm start
+  ```
+
+  The `product-list.component` will `console.log('Typed products:', products)` showing the strongly-typed `Product[]` returned by the service.
+
+- **Screenshot:**
+  Add a screenshot to the PR showing the model file and the service usage (e.g. open `src/app/models/product.model.ts` and `product.service.ts` in your editor and attach an image).  
+
