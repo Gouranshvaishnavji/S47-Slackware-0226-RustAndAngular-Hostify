@@ -65,7 +65,10 @@ export class StateService {
           reject(new Error('Simulated API error'));
           return;
         }
-        const items: Product[] = [{ id: 1, name: 'Simulated Item', price: 9.99, description: 'From simulateApiLoad' }];
+        const items: Product[] = [{
+            id: 1, name: 'Simulated Item', price: 9.99, description: 'From simulateApiLoad',
+            status: 'available'
+        }];
         this.setItems(items);
         resolve(items);
       }, 200);

@@ -16,3 +16,19 @@ pub struct Product {
     pub description: Option<String>,
     pub status: ProductStatus,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct CreateProductRequest {
+    pub name: String,
+    pub price: f64,
+    pub description: Option<String>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ProductResponse {
+    pub id: i32,
+    pub name: String,
+    pub price: f64,
+    pub description: Option<String>,
+    pub status: ProductStatus,
+}
