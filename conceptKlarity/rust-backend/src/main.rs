@@ -12,7 +12,9 @@ async fn main() -> std::io::Result<()> {
     println!("Starting server on http://0.0.0.0:{}", port);
 
     HttpServer::new(|| {
-        App::new().configure(routes::items::configure)
+        App::new()
+            .configure(routes::items::configure)
+            .configure(routes::products::configure)
     })
     .bind(("0.0.0.0", port))?
     .run()

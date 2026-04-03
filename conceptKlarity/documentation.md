@@ -109,3 +109,75 @@ Next steps (optional)
 
 - Add `sqlx::FromRow` derives and implement DB migrations in `rust-backend/migrations/` when moving from in-memory examples to a persistent store.
 - Add unit tests for (de)serialization to ensure enum variants and optional fields behave as expected.
+
+---
+
+## Typed Request/Response Models & Endpoint
+
+We added a typed request and response model and a working POST endpoint to demonstrate Serde-based (de)serialization and typed APIs.
+
+Models added (Rust)
+
+```rust
+// request
+#[derive(Deserialize, Debug)]
+pub struct CreateProductRequest {
+        pub name: String,
+        pub price: f64,
+        pub description: Option<String>,
+}
+
+// response
+#[derive(Serialize, Debug)]
+pub struct ProductResponse {
+        pub id: i32,
+        pub name: String,
+        pub price: f64,
+        pub description: Option<String>,
+        pub status: ProductStatus,
+}
+```
+
+Endpoint implemented
+
+- POST `/api/products` — accepts JSON matching `CreateProductRequest` and returns `201 Created` with JSON `ProductResponse`.
+- The handler uses `web::Json<CreateProductRequest>` extractor; Actix + Serde automatically deserializes the request body into the typed struct. Invalid JSON or missing required fields result in a `400 Bad Request` automatically.
+
+Example handler (simplified):
+
+```rust
+pub async fn create_product(req: web::Json<CreateProductRequest>) -> impl Responder {
+        let payload = req.into_inner();
+        let response = ProductResponse { id: 100, name: payload.name, price: payload.price, description: payload.description, status: ProductStatus::Available };
+        HttpResponse::Created().json(response)
+}
+```
+
+Testing with curl
+
+Send a valid request:
+
+```bash
+curl -i -X POST http://localhost:8080/api/products \
+    -H "Content-Type: application/json" \
+    -d '{"name":"New Product","price":12.5,"description":"demo"}'
+```
+
+Expected result: HTTP/1.1 201 Created and JSON body matching `ProductResponse`.
+
+Send invalid JSON (will produce 400):
+
+```bash
+curl -i -X POST http://localhost:8080/api/products \
+    -H "Content-Type: application/json" \
+    -d '{"name":"MissingPrice"}'
+```
+
+Why Serde
+
+- `serde` provides safe, performant, and flexible (de)serialization between Rust types and JSON. Using typed structs avoids manual parsing and ensures compile-time guarantees about field types.
+
+Notes on error handling
+
+- The `web::Json` extractor rejects invalid JSON or mismatched types with a 400 response by default. For additional validation (e.g., non-negative price) you can add explicit checks in the handler and return `HttpResponse::BadRequest()` when needed.
+
