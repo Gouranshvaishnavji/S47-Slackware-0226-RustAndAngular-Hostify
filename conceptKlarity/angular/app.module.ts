@@ -5,9 +5,10 @@ import { HttpClientModule } from '@angular/common/http';
 
 import { ProductListComponent } from './product-list.component';
 import { DemoCliComponent } from './demo-cli.component';
+import { BindingDemoComponent } from './binding-demo.component';
 
 @NgModule({
-  declarations: [ProductListComponent, DemoCliComponent],
+  declarations: [ProductListComponent, DemoCliComponent, BindingDemoComponent],
   imports: [BrowserModule, FormsModule, HttpClientModule],
   providers: [],
   bootstrap: [ProductListComponent]
