@@ -12,10 +12,10 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     );
 
     // Protected write endpoints (POST/PUT/DELETE) wrapped with AuthMiddleware
-    let token = config::get_auth_token();
+    let secret = config::get_jwt_secret();
     cfg.service(
         web::scope("/api/products")
-            .wrap(AuthMiddleware::new(token))
+            .wrap(AuthMiddleware::new(secret))
             .route("", web::post().to(create_product))
             .route("/{id}", web::put().to(update_product))
             .route("/{id}", web::delete().to(delete_product))

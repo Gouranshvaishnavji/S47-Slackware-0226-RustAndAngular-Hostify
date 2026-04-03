@@ -212,6 +212,26 @@ curl -i -X POST http://localhost:8080/api/products \
     -d '{"name":"X","price":1.0}'
 ```
 
+JWT Login flow
+
+1. Obtain JWT token (login):
+
+```bash
+curl -i -X POST http://localhost:8080/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"username":"admin","password":"password"}'
+```
+
+The response body will be JSON `{ "token": "<jwt>" }`.
+
+2. Use the returned token in `Authorization: Bearer <jwt>` header for protected calls (POST/PUT/DELETE).
+
+Angular notes
+
+- `AuthService` (`conceptKlarity/angular/services/auth.service.ts`) performs login against `/api/auth/login`, stores the JWT in `localStorage` under `auth_token`, and exposes `login()`, `logout()` and `isLoggedIn()` helpers.
+- An `AuthInterceptor` (`conceptKlarity/angular/src/app/interceptors/auth.interceptor.ts`) attaches the stored JWT automatically to outgoing requests (except the login endpoint).
+
+
 Response formats and safety
 
 - Unauthorized requests: `401 Unauthorized` with JSON `{ "error": "Unauthorized" }`.
