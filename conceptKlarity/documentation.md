@@ -212,6 +212,26 @@ curl -i -X POST http://localhost:8080/api/products \
     -d '{"name":"X","price":1.0}'
 ```
 
+JWT Login flow
+
+1. Obtain JWT token (login):
+
+```bash
+curl -i -X POST http://localhost:8080/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"username":"admin","password":"password"}'
+```
+
+The response body will be JSON `{ "token": "<jwt>" }`.
+
+2. Use the returned token in `Authorization: Bearer <jwt>` header for protected calls (POST/PUT/DELETE).
+
+Angular notes
+
+- `AuthService` (`conceptKlarity/angular/services/auth.service.ts`) performs login against `/api/auth/login`, stores the JWT in `localStorage` under `auth_token`, and exposes `login()`, `logout()` and `isLoggedIn()` helpers.
+- An `AuthInterceptor` (`conceptKlarity/angular/src/app/interceptors/auth.interceptor.ts`) attaches the stored JWT automatically to outgoing requests (except the login endpoint).
+
+
 Response formats and safety
 
 - Unauthorized requests: `401 Unauthorized` with JSON `{ "error": "Unauthorized" }`.
@@ -242,6 +262,82 @@ AI review & applied improvements
 - Switched `fetch_one` where appropriate to `fetch_optional` and handled `None` -> `404 Not Found`.
 - Removed `sqlx::FromRow` derive on `ProductResponse` and perform explicit tuple -> struct conversion with validation of the `status` field.
 - Made `ProductStatus::from_str` return `Option<ProductStatus>` so invalid DB values are surfaced instead of silently defaulting.
+
+Frontend: Loading & Error Handling
+---------------------------------
+
+Files updated:
+
+- `conceptKlarity/angular/product-list.component.ts` — manages two loading flags: `loadingList` for the initial GET and `submitting` for POST requests. Both flags are set before the request and cleared on success or error. The component maps `HttpErrorResponse` status codes to friendly messages.
+- `conceptKlarity/angular/product-list.component.html` — displays a loading indicator for list fetches, shows friendly error messages, and disables input fields and the `Add` button while a create request is in progress.
+- `conceptKlarity/angular/product.service.ts` — attaches `Authorization: Bearer <token>` header from `AuthService.getToken()` when performing protected write requests (POST).
+
+How loading states are managed
+
+- `loadingList` is set to `true` right before calling `getProducts()` and set to `false` in both the `next` and `error` callbacks.
+- `submitting` is set to `true` right before calling `createProduct()` and set to `false` in both the `next` and `error` callbacks.
+- The template disables inputs and buttons during `submitting` and shows a simple `Loading...` message when `loadingList` is true. This prevents duplicate submissions and keeps the UI consistent.
+
+Success handling
+
+- On successful `GET /api/products` the component calls `StateService.setItems()` so the shared state updates and the UI reflects the new data automatically.
+- On successful `POST /api/products` the created `Product` returned by the backend is appended to the shared state and the input fields are cleared.
+
+Error handling
+
+- Errors are caught from `HttpClient` and mapped to friendly messages using status codes.
+    - `0` -> Network error (server unreachable).
+    - `401`/`403` -> `Unauthorized — please login`.
+    - `400` -> `Invalid request (bad input)`.
+    - `5xx` -> `Server error — try again later`.
+- The UI shows the friendly message in a reserved `.error` area; raw backend error bodies or stack traces are not shown.
+
+Which endpoints are used
+
+- `GET /api/products` — fetch list (public)
+- `POST /api/products` — create product (protected: requires `Authorization: Bearer <token>` header)
+
+Tested error scenarios & how to reproduce locally
+
+1. Network/server down
+
+ - Stop the backend or point `DATABASE_URL` incorrectly and click refresh in the app. The UI displays `Network error — cannot reach server`.
+
+2. Unauthorized
+
+ - Leave `AUTH_TOKEN` unset on the server (or use a different token) and attempt to create a product. The backend returns `401`; the UI shows `Unauthorized — please login`.
+
+3. Validation / Bad request
+
+ - Send a create request with missing fields (try `-d '{"name":"MissingPrice"}'` in curl). The backend will respond `400` and the UI shows `Invalid request (bad input)`.
+
+Local reproduction steps (Angular + Backend)
+
+1. Start the backend (ensure `DATABASE_URL` is set):
+
+```bash
+cd conceptKlarity/rust-backend
+export DATABASE_URL="postgres://demo:demo@localhost:5432/conceptclarity"
+export AUTH_TOKEN="devtoken123" # set token for protected routes
+cargo run
+```
+
+2. Start the Angular dev server:
+
+```bash
+cd conceptKlarity/angular
+npm install
+npm start
+```
+
+3. In the browser app, open DevTools Console and optionally set a test token (so the frontend sends a valid token) if you want to test protected routes from the UI:
+
+```js
+localStorage.setItem('auth_token', 'devtoken123');
+```
+
+4. Use the app UI to fetch and create products. Try the error scenarios above to observe friendly messages and loading states.
+
 
 These changes were applied after an AI review step to improve error handling, SQLx usage, and robustness of the CRUD handlers.
 

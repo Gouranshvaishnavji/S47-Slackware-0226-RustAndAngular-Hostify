@@ -1,12 +1,18 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+
+interface LoginResponse {
+  token: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private loggedInSubject = new BehaviorSubject<boolean>(false);
+  private readonly loggedInSubject = new BehaviorSubject<boolean>(false);
   readonly isLoggedIn$ = this.loggedInSubject.asObservable();
+  private readonly loginUrl = '/api/auth/login';
 
-  constructor() {
+  constructor(private http: HttpClient) {
     const token = localStorage.getItem('auth_token');
     this.loggedInSubject.next(!!token);
   }
@@ -15,20 +21,19 @@ export class AuthService {
     return this.loggedInSubject.getValue();
   }
 
-  login(username: string, password: string): Promise<boolean> {
-    // simple simulated login - accept any non-empty username/password
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (username && password) {
-          const token = btoa(`${username}:${Date.now()}`);
-          localStorage.setItem('auth_token', token);
-          this.loggedInSubject.next(true);
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      }, 300);
-    });
+  async login(username: string, password: string): Promise<boolean> {
+    try {
+      const resp = await firstValueFrom(this.http.post<LoginResponse>(this.loginUrl, { username, password }));
+      if (resp && resp.token) {
+        localStorage.setItem('auth_token', resp.token);
+        this.loggedInSubject.next(true);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('Login failed', e);
+      return false;
+    }
   }
 
   logout(): void {

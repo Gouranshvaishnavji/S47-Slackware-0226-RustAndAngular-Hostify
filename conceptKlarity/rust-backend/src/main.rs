@@ -51,6 +51,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .app_data(web::Data::new(pool.clone()))
             .configure(routes::items::configure)
+            .configure(routes::auth::configure)
             .configure(routes::products::configure)
     })
     .bind(("0.0.0.0", port))?

@@ -3,28 +3,29 @@ use actix_web::dev::{forward_ready, ServiceRequest, ServiceResponse, Transform};
 use actix_web::{Error, HttpMessage, HttpResponse};
 use actix_web::body::{EitherBody, MessageBody};
 use futures_util::future::{ready, Ready};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
-/// Simple header-based auth middleware. Compares Authorization: Bearer <token>
-/// against a configured token and returns 401 when missing/invalid.
+use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+
+/// JWT-based auth middleware. Validates `Authorization: Bearer <jwt>` tokens
+/// using the provided secret and rejects unauthorized requests with `401`.
 #[derive(Clone)]
 pub struct AuthMiddleware {
-    token: String,
+    secret: String,
 }
 
 impl AuthMiddleware {
-    pub fn new(token: String) -> Self {
-        Self { token }
+    pub fn new(secret: String) -> Self {
+        Self { secret }
     }
 }
 
 pub struct AuthMiddlewareService<S> {
     service: Arc<S>,
-    token: String,
+    secret: String,
 }
 
 impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
@@ -42,9 +43,16 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ready(Ok(AuthMiddlewareService {
             service: Arc::new(service),
-            token: self.token.clone(),
+            secret: self.secret.clone(),
         }))
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: String,
+    pub iat: usize,
+    pub exp: usize,
 }
 
 impl<S, B> Service<ServiceRequest> for AuthMiddlewareService<S>
@@ -60,7 +68,7 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let token = self.token.clone();
+        let secret = self.secret.clone();
         let srv = self.service.clone();
 
         Box::pin(async move {
@@ -76,24 +84,25 @@ where
                     let mut parts = s.splitn(2, ' ');
                     if let Some(scheme) = parts.next() {
                         if scheme.eq_ignore_ascii_case("Bearer") {
-                            if let Some(provided_raw) = parts.next() {
-                                let provided = provided_raw.trim();
-                                if const_time_eq(provided, &token) {
-                                    let res = srv.call(req).await?;
-                                    return Ok(res.map_into_left_body());
-                                } else {
-                                    log::debug!("Auth failed: token mismatch");
+                            if let Some(token_raw) = parts.next() {
+                                let token = token_raw.trim();
+                                let validation = Validation::new(Algorithm::HS256);
+                                match decode::<Claims>(token, &DecodingKey::from_secret(secret.as_ref()), &validation) {
+                                    Ok(data) => {
+                                        // attach claims to request extensions for handlers
+                                        let mut req = req;
+                                        req.extensions_mut().insert(data.claims);
+                                        let res = srv.call(req).await?;
+                                        return Ok(res.map_into_left_body());
+                                    }
+                                    Err(e) => {
+                                        log::debug!("JWT decode error: {}", e);
+                                    }
                                 }
                             }
-                        } else {
-                            log::debug!("Auth failed: scheme not Bearer");
                         }
                     }
-                } else {
-                    log::debug!("Invalid Authorization header encoding");
                 }
-            } else {
-                log::debug!("Missing Authorization header");
             }
 
             let er = ErrorResponse { error: "Unauthorized".to_string() };
@@ -106,17 +115,4 @@ where
 #[derive(Serialize)]
 struct ErrorResponse {
     error: String,
-}
-
-fn const_time_eq(a: &str, b: &str) -> bool {
-    let a_bytes = a.as_bytes();
-    let b_bytes = b.as_bytes();
-    let mut res: u8 = 0;
-    let max_len = std::cmp::max(a_bytes.len(), b_bytes.len());
-    for i in 0..max_len {
-        let x = *a_bytes.get(i).unwrap_or(&0);
-        let y = *b_bytes.get(i).unwrap_or(&0);
-        res |= x ^ y;
-    }
-    res == 0 && a_bytes.len() == b_bytes.len()
 }
