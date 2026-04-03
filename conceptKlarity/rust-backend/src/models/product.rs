@@ -24,11 +24,40 @@ pub struct CreateProductRequest {
     pub description: Option<String>,
 }
 
-#[derive(Serialize, Debug, sqlx::FromRow)]
+#[derive(Deserialize, Debug)]
+pub struct UpdateProductRequest {
+    pub name: String,
+    pub price: f64,
+    pub description: Option<String>,
+    pub status: Option<ProductStatus>,
+}
+
+#[derive(Serialize, Debug)]
 pub struct ProductResponse {
     pub id: i32,
     pub name: String,
     pub price: f64,
     pub description: Option<String>,
     pub status: ProductStatus,
+}
+
+impl ProductStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ProductStatus::Available => "available",
+            ProductStatus::OutOfStock => "out_of_stock",
+            ProductStatus::Discontinued => "discontinued",
+        }
+    }
+
+    /// Parse a database status string into `ProductStatus`.
+    /// Returns `None` for unknown/invalid strings.
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "out_of_stock" => Some(ProductStatus::OutOfStock),
+            "discontinued" => Some(ProductStatus::Discontinued),
+            "available" => Some(ProductStatus::Available),
+            _ => None,
+        }
+    }
 }
