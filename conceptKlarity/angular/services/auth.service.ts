@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
+import { map, tap, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 
 interface LoginResponse {
@@ -21,19 +22,21 @@ export class AuthService {
     return this.loggedInSubject.getValue();
   }
 
-  async login(username: string, password: string): Promise<boolean> {
-    try {
-      const resp = await firstValueFrom(this.http.post<LoginResponse>(this.loginUrl, { username, password }));
-      if (resp && resp.token) {
-        localStorage.setItem('auth_token', resp.token);
-        this.loggedInSubject.next(true);
-        return true;
-      }
-      return false;
-    } catch (e) {
-      console.error('Login failed', e);
-      return false;
-    }
+  // Return an Observable<boolean> instead of a Promise so consumers use Observables
+  login(username: string, password: string): Observable<boolean> {
+    return this.http.post<LoginResponse>(this.loginUrl, { username, password }).pipe(
+      tap(resp => {
+        if (resp && resp.token) {
+          localStorage.setItem('auth_token', resp.token);
+          this.loggedInSubject.next(true);
+        }
+      }),
+      map(resp => !!resp && !!resp.token),
+      catchError(err => {
+        console.error('Login failed', err);
+        return of(false);
+      })
+    );
   }
 
   logout(): void {

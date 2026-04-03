@@ -1,13 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { take } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
-export class LoginComponent {
+export class LoginComponent implements OnDestroy {
   username = '';
   password = '';
   error = '';
@@ -18,16 +20,25 @@ export class LoginComponent {
     const rq = this.route.snapshot.queryParamMap.get('returnUrl');
     if (rq) this.returnUrl = rq;
   }
+  private sub?: Subscription;
 
-  async submit(): Promise<void> {
+  submit(): void {
     this.loading = true;
     this.error = '';
-    const ok = await this.auth.login(this.username, this.password);
-    this.loading = false;
-    if (ok) {
-      await this.router.navigateByUrl(this.returnUrl);
-    } else {
+    this.sub = this.auth.login(this.username, this.password).pipe(take(1)).subscribe(ok => {
+      this.loading = false;
+      if (ok) {
+        this.router.navigateByUrl(this.returnUrl);
+      } else {
+        this.error = 'Login failed';
+      }
+    }, () => {
+      this.loading = false;
       this.error = 'Login failed';
-    }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.sub?.unsubscribe();
   }
 }
