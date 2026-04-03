@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
 import { Product, CreateProductRequest } from './src/app/models/product.model';
 
 @Injectable({ providedIn: 'root' })
@@ -10,7 +11,11 @@ export class ProductService {
 
   // Returns a strongly-typed Observable of Product[] (demonstrates generics)
   getProducts(): Observable<Product[]> {
-    return this.http.get<Product[]>(this.base);
+    return this.http.get<Product[]>(this.base).pipe(
+      // Lightweight transform: trim product names to demonstrate `map`
+      map(items => items.map(p => ({ ...p, name: p.name ? p.name.trim() : p.name }))),
+      tap(items => console.debug('[ProductService] fetched', items.length, 'items'))
+    );
   }
 
   // Accepts a typed payload and returns the created Product

@@ -2,15 +2,16 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ProductService } from './product.service';
 import { Product, CreateProductRequest } from './src/app/models/product.model';
 import { StateService } from './services/state.service';
-import { Subscription } from 'rxjs';
+import { Subscription, of, Observable } from 'rxjs';
+import { switchMap, tap, catchError } from 'rxjs/operators';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-product-list',
   templateUrl: './product-list.component.html'
 })
-export class ProductListComponent implements OnInit {
-  items: Product[] = [];
+export class ProductListComponent implements OnInit, OnDestroy {
+  items$!: Observable<Product[]>; // expose observable for async pipe (initialized in ngOnInit)
   newName = '';
   newPrice = 0;
   newDescription = '';
@@ -22,32 +23,46 @@ export class ProductListComponent implements OnInit {
   constructor(private svc: ProductService, private state: StateService) {}
 
   ngOnInit(): void {
-    // subscribe to the shared state (single source of truth)
-    this.subs.push(this.state.items$.subscribe(items => this.items = items));
+    // expose state observable for template and perform initial load
+    this.items$ = this.state.items$;
     this.load();
   }
 
   load(): void {
     this.loadingList = true;
-    this.svc.getProducts().subscribe({
-      next: (data) => { this.state.setItems(data); console.log('Typed products:', data); this.loadingList = false; },
-      error: (err: HttpErrorResponse) => { this.error = this.formatHttpError(err, 'Failed to load items'); this.loadingList = false; }
+    const s = this.svc.getProducts().pipe(
+      tap(() => this.error = ''),
+      catchError((err: HttpErrorResponse) => {
+        this.error = this.formatHttpError(err, 'Failed to load items');
+        return of([] as Product[]); // safe fallback for the UI
+      })
+    ).subscribe(items => {
+      this.state.setItems(items);
+      this.loadingList = false;
     });
+    this.subs.push(s);
   }
 
   add(): void {
     if (!this.newName) { this.error = 'Name required'; return; }
     this.submitting = true;
     const payload: CreateProductRequest = { name: this.newName, price: this.newPrice, description: this.newDescription || undefined };
-    this.svc.createProduct(payload).subscribe({
-      next: (item) => {
-        // update shared state instead of local push
-        const current = this.state.getItemsSnapshot();
-        this.state.setItems([...current, item]);
-        this.newName = ''; this.newPrice = 0; this.newDescription = ''; this.submitting = false; this.error = '';
-      },
-      error: (err: HttpErrorResponse) => { this.error = this.formatHttpError(err, 'Create failed'); this.submitting = false; }
+
+    // Use switchMap to chain create -> refresh list without nested subscriptions
+    const s = this.svc.createProduct(payload).pipe(
+      switchMap(() => this.svc.getProducts()),
+      tap(() => { this.error = ''; }),
+      catchError((err: HttpErrorResponse) => {
+        this.error = this.formatHttpError(err, 'Create failed');
+        return of([] as Product[]);
+      })
+    ).subscribe(items => {
+      // update shared state with fresh list
+      this.state.setItems(items);
+      this.newName = ''; this.newPrice = 0; this.newDescription = '';
+      this.submitting = false;
     });
+    this.subs.push(s);
   }
 
   private formatHttpError(err: HttpErrorResponse, fallback: string): string {

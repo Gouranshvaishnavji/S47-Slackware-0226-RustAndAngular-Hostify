@@ -57,12 +57,12 @@ export class StateService {
     return true;
   }
 
-  // Simulate an API load; can optionally fail to demonstrate error handling
-  simulateApiLoad(shouldFail = false): Promise<Product[]> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
+  // Simulate an API load; returns an Observable (no Promises) for consistency with app APIs
+  simulateApiLoad(shouldFail = false): Observable<Product[]> {
+    return new Observable<Product[]>(subscriber => {
+      const t = setTimeout(() => {
         if (shouldFail) {
-          reject(new Error('Simulated API error'));
+          subscriber.error(new Error('Simulated API error'));
           return;
         }
         const items: Product[] = [{
@@ -70,8 +70,12 @@ export class StateService {
             status: 'available'
         }];
         this.setItems(items);
-        resolve(items);
+        subscriber.next(items);
+        subscriber.complete();
       }, 200);
+
+      // Teardown
+      return () => clearTimeout(t);
     });
   }
 }
