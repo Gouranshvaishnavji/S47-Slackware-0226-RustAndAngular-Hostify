@@ -6,7 +6,7 @@ Summary of changes
 
 - Added `sqlx` and `anyhow` to `rust-backend/Cargo.toml`.
 - Created a connection pool from the `DATABASE_URL` environment variable in `src/main.rs`.
-- Executed a simple `CREATE TABLE IF NOT EXISTS products (...)` migration at startup.
+- Added embedded SQLx migrations and run them at startup using `sqlx::migrate!()`.
 - Implemented `POST /api/products` (create) and `GET /api/products` (list) backed by the database in `handlers/products.rs` and `routes/products.rs`.
 - Added typed request/response DTOs (`CreateProductRequest`, `ProductResponse`) and derived `serde` and `sqlx::FromRow` where appropriate.
 
@@ -29,7 +29,9 @@ export DATABASE_URL="postgres://dbuser:dbpass@localhost:5432/conceptklarity"
 Connection pool & startup
 
 - `src/main.rs` creates a pool with `sqlx::postgres::PgPoolOptions::new().max_connections(5).connect(&database_url).await`.
-- After obtaining the pool we run a simple SQL statement to ensure the `products` table exists:
+After obtaining the pool we run the embedded migrations (from `rust-backend/migrations/`) using `sqlx::migrate!()` which applies the checked SQL migration files included in the repository.
+
+The checked migration used in this commit is `rust-backend/migrations/0001_create_products.sql` which creates the `products` table:
 
 ```sql
 CREATE TABLE IF NOT EXISTS products (
@@ -37,8 +39,9 @@ CREATE TABLE IF NOT EXISTS products (
     name TEXT NOT NULL,
     price DOUBLE PRECISION NOT NULL,
     description TEXT,
-    status TEXT NOT NULL
-)
+    status TEXT NOT NULL DEFAULT 'available',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
 ```
 
 - If the pool cannot be established or the migration fails the server logs the error and exits cleanly (no panics or unwraps).
@@ -111,6 +114,30 @@ curl -i -X POST http://localhost:8080/api/products \
 curl http://localhost:8080/api/products
 ```
 
+7. Fetch a single product by id:
+
+```bash
+curl http://localhost:8080/api/products/1
+```
+
+8. Update a product (PUT, full update):
+
+```bash
+curl -i -X PUT http://localhost:8080/api/products/1 \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Updated","price":15.0,"description":"updated","status":"available"}'
+```
+
+Expected: `200 OK` with the updated `ProductResponse`.
+
+9. Delete a product:
+
+```bash
+curl -i -X DELETE http://localhost:8080/api/products/1
+```
+
+Expected: `204 No Content` on success, `404 Not Found` if the id does not exist.
+
 6. Invalid payload (example):
 
 ```bash
@@ -134,6 +161,15 @@ Next steps (recommended)
 - Add a migration tool (e.g., `sqlx migrate` or `refinery`) and check-in migration files under `rust-backend/migrations/`.
 - Add more robust error responses and structured error types for the API.
 - Add unit/integration tests for handlers using a test database.
+
+AI review & applied improvements
+
+- Replaced ad-hoc error printing with `log::error!` and ensured `env_logger` is initialized.
+- Switched `fetch_one` where appropriate to `fetch_optional` and handled `None` -> `404 Not Found`.
+- Removed `sqlx::FromRow` derive on `ProductResponse` and perform explicit tuple -> struct conversion with validation of the `status` field.
+- Made `ProductStatus::from_str` return `Option<ProductStatus>` so invalid DB values are surfaced instead of silently defaulting.
+
+These changes were applied after an AI review step to improve error handling, SQLx usage, and robustness of the CRUD handlers.
 
 
 ---

@@ -27,20 +27,10 @@ async fn main() -> std::io::Result<()> {
             std::io::Error::new(std::io::ErrorKind::Other, "Database connection failed")
         })?;
 
-    // Run a simple migration to ensure the products table exists
-    if let Err(e) = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS products (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            price DOUBLE PRECISION NOT NULL,
-            description TEXT,
-            status TEXT NOT NULL
-        )",
-    )
-    .execute(&pool)
-    .await
-    {
-        eprintln!("Failed to run migration: {}", e);
+    // Run embedded migrations from `rust-backend/migrations/`
+    // This requires the `migrate` feature for `sqlx` (enabled in Cargo.toml).
+    if let Err(e) = sqlx::migrate!().run(&pool).await {
+        eprintln!("Failed to run database migrations: {}", e);
         return Err(std::io::Error::new(std::io::ErrorKind::Other, "Migration failed"));
     }
 
